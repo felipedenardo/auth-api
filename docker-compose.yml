@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  auth_api:
+    build: .
+    container_name: auth_api
+    ports:
+      - "8081:8081"
+    depends_on:
+      - auth_db
+    environment:
+      - DB_HOST=auth
+      - DB_PORT=5432
+      - DB_USER=auth
+      - DB_PASSWORD=auth
+      - DB_NAME=auth
+      - SERVER_PORT=8081
+    networks:
+      - microservices-net
+
+  auth_db:
+    image: postgres:15-alpine
+    container_name: auth_postgres
+    environment:
+      POSTGRES_USER: auth
+      POSTGRES_PASSWORD: auth
+      POSTGRES_DB: auth
+    ports:
+      - "5433:5432"
+    volumes:
+      - auth_postgres_data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
+
+volumes:
+  auth_postgres_data:
+
+networks:
+  microservices-net:
+    driver: bridge
