@@ -1,0 +1,16 @@
+# --- IDEs e Editors ---
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# --- Go Build ---
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+
+go.sum
+
+.env
