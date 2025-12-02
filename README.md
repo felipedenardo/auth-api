@@ -10,7 +10,7 @@ O serviço é construído com Go, GORM e segue a arquitetura Hexagonal/Clean Arc
 
 ### Pré-requisitos
 - Docker e Docker Compose.
-- Variáveis de ambiente no `.env` (DB_HOST, DB_PORT=5433, JWT_SECRET).
+- Variáveis de ambiente no `.env`.
 
 ### Execução Local
 
