@@ -6,6 +6,7 @@ import (
 	"github.com/felipedenardo/chameleon-auth-api/internal/config"
 	authdomain "github.com/felipedenardo/chameleon-auth-api/internal/domain/auth"
 	"github.com/felipedenardo/chameleon-auth-api/internal/infra/database/postgresql/repository"
+	redisrepository "github.com/felipedenardo/chameleon-auth-api/internal/infra/database/redis"
 	"github.com/felipedenardo/chameleon-common/pkg/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -28,7 +29,7 @@ func NewHandlerContainer(db *gorm.DB, cfg *config.Config, redisClient *redis.Cli
 
 func newAuthHandler(db *gorm.DB, cfg *config.Config, redisClient *redis.Client) *authhandler.Handler {
 	userRepo := repository.NewUserRepository(db)
-	cacheRepo := repository.NewCacheRepository(redisClient)
+	cacheRepo := redisrepository.NewCacheRepository(redisClient)
 	authService := authdomain.NewAuthService(userRepo, cacheRepo, cfg.JWTSecret)
 	return authhandler.NewAuthHandler(authService)
 }
@@ -36,7 +37,7 @@ func newAuthHandler(db *gorm.DB, cfg *config.Config, redisClient *redis.Client) 
 func SetupRouter(handlers *HandlerContainer, cfg *config.Config) *gin.Engine {
 	r := gin.Default()
 
-	cacheRepoForMiddleware := repository.NewCacheRepository(handlers.RedisClient)
+	cacheRepoForMiddleware := redisrepository.NewCacheRepository(handlers.RedisClient)
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
