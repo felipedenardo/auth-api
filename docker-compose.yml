@@ -32,6 +32,19 @@ services:
         aliases:
           - auth # Permite que o DB seja acessado pelo host "auth" dentro da rede Docker
 
+  redis_cache:
+    image: redis:7-alpine
+    container_name: auth_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - microservices-net
+    environment:
+      - REDIS_HOST=auth_redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
+
 volumes:
   auth_postgres_data:
 

@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/felipedenardo/chameleon-auth-api/internal/app"
 	"github.com/felipedenardo/chameleon-auth-api/internal/config"
 	"github.com/felipedenardo/chameleon-auth-api/internal/infra/database/postgresql/migration"
 	"github.com/go-gormigrate/gormigrate/v2"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"log"
@@ -26,11 +28,23 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("[INFO] No .env file found, using system environment variables.")
 	}
-
 	cfg := config.Load()
 
 	log.Printf("Starting Auth API on port %s...", cfg.Port)
 
+	db := setupPostgres(cfg)
+	redisClient := setupRedis(cfg)
+
+	handlers := app.NewHandlerContainer(db, cfg, redisClient)
+	r := app.SetupRouter(handlers, cfg)
+
+	log.Printf("[INFO] Auth API running on port %s", cfg.Port)
+	if err := r.Run(":" + cfg.Port); err != nil {
+		log.Fatalf("[FATAL] Server failed: %v", err)
+	}
+}
+
+func setupPostgres(cfg *config.Config) *gorm.DB {
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=UTC",
 		cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort,
@@ -38,9 +52,9 @@ func main() {
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("[FATAL] Failed to connect to database: %v", err)
+		log.Fatalf("[FATAL] Failed to connect to PostgreSQL: %v", err)
 	}
-	log.Println("Database connection established")
+	log.Println("PostgreSQL connection established")
 
 	m := gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{
 		&migration.ID011220251300DDLCreateInitialSchema,
@@ -51,12 +65,22 @@ func main() {
 	}
 	log.Println("Migrations executed successfully")
 
-	handlers := app.NewHandlerContainer(db, cfg)
+	return db
+}
 
-	r := app.SetupRouter(handlers, cfg)
+func setupRedis(cfg *config.Config) *redis.Client {
+	redisAddr := fmt.Sprintf("%s:%s", cfg.RedisHost, cfg.RedisPort)
 
-	log.Printf("[INFO] Auth API running on port %s", cfg.Port)
-	if err := r.Run(":" + cfg.Port); err != nil {
-		log.Fatalf("[FATAL] Server failed: %v", err)
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisAddr,
+		Password: cfg.RedisPassword,
+		DB:       cfg.RedisDB,
+	})
+
+	if _, err := redisClient.Ping(context.Background()).Result(); err != nil {
+		log.Fatalf("[FATAL] Failed to connect to Redis: %v", err)
 	}
+	log.Println("Redis connection established")
+
+	return redisClient
 }

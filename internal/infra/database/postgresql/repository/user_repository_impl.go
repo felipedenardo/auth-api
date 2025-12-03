@@ -56,3 +56,17 @@ func (r *userRepository) UpdatePasswordHash(ctx context.Context, userID uuid.UUI
 	}
 	return nil
 }
+
+func (r *userRepository) UpdateLastLoginAt(ctx context.Context, userID uuid.UUID) error {
+	now := time.Now()
+
+	result := r.db.WithContext(ctx).
+		Model(&user.User{}).
+		Where("id = ?", userID).
+		Update("last_login_at", now)
+
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}

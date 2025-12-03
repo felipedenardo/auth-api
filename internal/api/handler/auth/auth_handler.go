@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/felipedenardo/chameleon-auth-api/internal/domain/auth"
 	httphelpers "github.com/felipedenardo/chameleon-common/pkg/http"
+	"github.com/felipedenardo/chameleon-common/pkg/middleware"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -126,4 +127,32 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 	}
 
 	httphelpers.RespondOK(c, gin.H{"message": "Password changed successfully"})
+}
+
+// Logout revoga o token JWT, adicionando-o à blacklist no Redis.
+// @Summary Revogar Token
+// @Description Adiciona o JWT à blacklist, invalidando a sessão imediatamente.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Success 200 {object} response.Standard
+// @Failure 400 {object} response.Standard
+// @Failure 401 {object} response.Standard
+// @Router /auth/logout [post]
+func (h *Handler) Logout(c *gin.Context) {
+	tokenString, exists := c.Get(middleware.RawTokenKey)
+	if !exists || tokenString == "" {
+		httphelpers.RespondUnauthorized(c, "Token não encontrado no contexto.")
+		return
+	}
+
+	err := h.service.Logout(c.Request.Context(), tokenString.(string))
+
+	if err != nil {
+		httphelpers.RespondInternalError(c, err)
+		return
+	}
+
+	httphelpers.RespondOK(c, gin.H{"message": "Sessão encerrada com sucesso."})
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"log"
 	"time"
 )
 
@@ -15,16 +16,19 @@ type IService interface {
 	Register(ctx context.Context, name, email, password, role string) (*user.User, error)
 	Login(ctx context.Context, email, password string) (string, *user.User, error)
 	ChangePassword(ctx context.Context, id uuid.UUID, password string, password2 string) error
+	Logout(ctx context.Context, tokenString string) error
 }
 
 type authService struct {
 	repo      user.IRepository
+	cacheRepo ICacheRepository
 	jwtSecret []byte
 }
 
-func NewAuthService(repo user.IRepository, secret string) IService {
+func NewAuthService(repo user.IRepository, cacheRepo ICacheRepository, secret string) IService {
 	return &authService{
 		repo:      repo,
+		cacheRepo: cacheRepo,
 		jwtSecret: []byte(secret),
 	}
 }
@@ -80,12 +84,21 @@ func (s *authService) Login(ctx context.Context, email, password string) (string
 		"role": foundUser.Role,
 		"name": foundUser.Name,
 		"exp":  time.Now().Add(time.Hour * 24).Unix(),
+		"jti":  uuid.New().String(),
 	})
 
 	tokenString, err := token.SignedString(s.jwtSecret)
 	if err != nil {
 		return "", nil, err
 	}
+
+	go func() {
+		err := s.repo.UpdateLastLoginAt(context.Background(), foundUser.ID)
+		if err != nil {
+			log.Printf("[ERROR] Failed to update last_login_at for user %s: %v", foundUser.ID.String(), err)
+			return
+		}
+	}()
 
 	return tokenString, foundUser, nil
 }
@@ -114,4 +127,35 @@ func (s *authService) ChangePassword(ctx context.Context, userID uuid.UUID, curr
 	}
 
 	return s.repo.UpdatePasswordHash(ctx, userID, string(newHash))
+}
+
+func (s *authService) Logout(ctx context.Context, tokenString string) error {
+
+	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
+	if err != nil {
+		return errors.New("invalid token format")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return errors.New("invalid token claims")
+	}
+
+	jti, ok := claims["jti"].(string)
+	if !ok {
+		return errors.New("jti claim missing")
+	}
+
+	expTime, ok := claims["exp"].(float64)
+	if !ok {
+		return errors.New("expiration claim missing")
+	}
+
+	ttl := time.Unix(int64(expTime), 0).Sub(time.Now())
+
+	if ttl > 0 {
+		return s.cacheRepo.BlacklistToken(ctx, jti, ttl)
+	}
+
+	return nil
 }
