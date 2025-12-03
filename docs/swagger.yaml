@@ -14,6 +14,20 @@ definitions:
     - current_password
     - new_password
     type: object
+  internal_api_handler_auth.DeactivateRequest:
+    properties:
+      current_password:
+        type: string
+    required:
+    - current_password
+    type: object
+  internal_api_handler_auth.ForgotPasswordRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
   internal_api_handler_auth.LoginRequest:
     properties:
       email:
@@ -52,6 +66,31 @@ definitions:
     - name
     - password
     - role
+    type: object
+  internal_api_handler_auth.ResetPasswordRequest:
+    properties:
+      confirm_password:
+        type: string
+      new_password:
+        minLength: 8
+        type: string
+      token:
+        type: string
+    required:
+    - confirm_password
+    - new_password
+    - token
+    type: object
+  internal_api_handler_auth.StatusUpdateRequest:
+    properties:
+      status:
+        enum:
+        - active
+        - inactive
+        - suspended
+        type: string
+    required:
+    - status
     type: object
   internal_api_handler_auth.UserResponse:
     properties:
@@ -99,6 +138,43 @@ info:
   title: Auth API Microservice (Chameleon System)
   version: "1.0"
 paths:
+  /admin/users/{id}/status:
+    put:
+      consumes:
+      - application/json
+      description: Permite ao Admin banir, suspender ou reativar um usuário.
+      parameters:
+      - description: ID do usuário a ser atualizado
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Novo status
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api_handler_auth.StatusUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Standard'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Standard'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Standard'
+      security:
+      - ApiKeyAuth: []
+      summary: Atualiza o status de um usuário (Admin-only)
+      tags:
+      - Admin
   /auth/change-password:
     post:
       consumes:
@@ -120,6 +196,69 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Altera a senha do usuário logado
+      tags:
+      - Auth
+  /auth/deactivate:
+    post:
+      consumes:
+      - application/json
+      description: Exige a senha atual para confirmar a intenção e desativa o status
+        do usuário (soft delete).
+      parameters:
+      - description: Senha atual do usuário
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api_handler_auth.DeactivateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Standard'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Standard'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Standard'
+      security:
+      - ApiKeyAuth: []
+      summary: Desativa a própria conta do usuário
+      tags:
+      - Auth
+  /auth/forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: Recebe o e-mail do usuário e envia um token de reset
+      parameters:
+      - description: E-mail do usuário
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api_handler_auth.ForgotPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Standard'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Standard'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Standard'
+      summary: Iniciar recuperação de senha
       tags:
       - Auth
   /auth/login:
@@ -213,6 +352,36 @@ paths:
           schema:
             $ref: '#/definitions/response.Standard'
       summary: Registra um novo usuário
+      tags:
+      - Auth
+  /auth/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Recebe o token de reset e a nova senha para atualizar no DB.
+      parameters:
+      - description: Token de reset e nova senha
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_api_handler_auth.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Standard'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Standard'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Standard'
+      summary: Finalizar reset de senha
       tags:
       - Auth
 schemes:
