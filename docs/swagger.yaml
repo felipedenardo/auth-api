@@ -156,6 +156,31 @@ paths:
       summary: Autenticar usuário
       tags:
       - Auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Adiciona o JWT à blacklist, invalidando a sessão imediatamente.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Standard'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Standard'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Standard'
+      security:
+      - ApiKeyAuth: []
+      summary: Revogar Token
+      tags:
+      - Auth
   /auth/register:
     post:
       consumes:
